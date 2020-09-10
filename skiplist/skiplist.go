@@ -1,7 +1,7 @@
 package skiplist
 
 import (
-	"byron.com/simpledb/errors"
+	"github.com/byronzhu-haha/simpledb/errors"
 	"math/rand"
 	"sync"
 	"time"

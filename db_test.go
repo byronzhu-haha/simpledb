@@ -1,7 +1,7 @@
 package simpledb
 
 import (
-	"byron.com/simpledb/errors"
+	"github.com/byronzhu-haha/simpledb/errors"
 	"strconv"
 	"testing"
 	"time"

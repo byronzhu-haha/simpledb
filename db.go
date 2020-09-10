@@ -1,13 +1,13 @@
 package simpledb
 
 import (
-	"byron.com/simpledb/skiplist"
+	"github.com/byronzhu-haha/simpledb/errors"
 	"math"
 	"reflect"
 	"sync"
 	"time"
 
-	"byron.com/simpledb/errors"
+	"github.com/byronzhu-haha/simpledb/skiplist"
 )
 
 var (
