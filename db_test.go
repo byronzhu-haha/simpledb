@@ -1,4 +1,4 @@
-package bydb
+package simpledb
 
 import (
 	"byron.com/simpledb/errors"
