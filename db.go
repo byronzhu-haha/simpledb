@@ -29,19 +29,6 @@ type CustomKey interface {
 
 type Query func(v interface{}) bool
 
-type Config struct {
-	withExpired bool
-}
-
-type DBOption func(o Config) Config
-
-func DBOptionWithExpired() DBOption {
-	return func(o Config) Config {
-		o.withExpired = true
-		return o
-	}
-}
-
 type expireCustomKey struct {
 	typ        keyType
 	expireTime int64
@@ -56,25 +43,7 @@ func (k expireCustomKey) Key() string {
 	return k.key.Key()
 }
 
-type SaveOptions struct {
-	isExpired bool
-	ttl       int64
-}
-
-type SaveOption func(o SaveOptions) SaveOptions
-
-func SaveOptionTTL(ttl int64) SaveOption {
-	return func(o SaveOptions) SaveOptions {
-		if ttl <= 0 {
-			return o
-		}
-		o.isExpired = true
-		o.ttl = ttl
-		return o
-	}
-}
-
-type ByDB struct {
+type DB struct {
 	typ     keyType
 	hasInit bool
 	mu      sync.RWMutex
@@ -83,16 +52,16 @@ type ByDB struct {
 	conf    Config
 }
 
-// NewCustomByDB 创建一个key可以定制的内存数据库，
+// NewCustomDB 创建一个key可以定制的内存数据库，
 // 前提是您的key类型实现了CustomKey接口，且它可比较，即key实例为实现类的值类型
-func NewCustomByDB(less func(l, r interface{}) bool, opts ...DBOption) *ByDB {
+func NewCustomDB(less func(l, r interface{}) bool, opts ...DBOption) *DB {
 	var (
 		conf = Config{}
 	)
 	for _, opt := range opts {
 		conf = opt(conf)
 	}
-	db := &ByDB{
+	db := &DB{
 		typ:     Custom,
 		hasInit: true,
 		keys:    make(map[string]CustomKey),
@@ -111,15 +80,15 @@ func NewCustomByDB(less func(l, r interface{}) bool, opts ...DBOption) *ByDB {
 	return db
 }
 
-// NewByDB 创建key为string, value为interface{}的内存数据库
-func NewByDB(opts ...DBOption) *ByDB {
+// NewDB 创建key为string, value为interface{}的内存数据库
+func NewDB(opts ...DBOption) *DB {
 	var (
 		conf = Config{}
 	)
 	for _, opt := range opts {
 		conf = opt(conf)
 	}
-	db := &ByDB{
+	db := &DB{
 		typ:     String,
 		hasInit: true,
 		conf:    conf,
@@ -146,18 +115,18 @@ func NewByDB(opts ...DBOption) *ByDB {
 	return db
 }
 
-func (d *ByDB) withExpired() bool {
+func (d *DB) withExpired() bool {
 	return d.conf.withExpired
 }
 
-func (d *ByDB) checkBeforeOp() {
+func (d *DB) checkBeforeOp() {
 	if !d.hasInit {
 		panic(errors.ErrNotInit)
 	}
 }
 
 // isValidKey 校验是否为有效的key，目前支持string类型、实现了CustomKey接口的值类型
-func (d *ByDB) isValidKey(key interface{}) (CustomKey, error) {
+func (d *DB) isValidKey(key interface{}) (CustomKey, error) {
 	if key == nil {
 		return nil, errors.ErrNilKey
 	}
@@ -186,7 +155,7 @@ func (d *ByDB) isValidKey(key interface{}) (CustomKey, error) {
 }
 
 // Save 保存数据，支持过期时间
-func (d *ByDB) Save(key, value interface{}, opts ...SaveOption) error {
+func (d *DB) Save(key, value interface{}, opts ...SaveOption) error {
 	// 检测db是否被初始化
 	d.checkBeforeOp()
 
@@ -224,7 +193,7 @@ func (d *ByDB) Save(key, value interface{}, opts ...SaveOption) error {
 }
 
 // packWithExpire 为key包上过期时间
-func (d *ByDB) packWithExpire(inKey interface{}, inCustomKey CustomKey, ttl int64) (outKey interface{}, outCustomKey CustomKey) {
+func (d *DB) packWithExpire(inKey interface{}, inCustomKey CustomKey, ttl int64) (outKey interface{}, outCustomKey CustomKey) {
 	now := time.Now().Unix()
 	switch d.typ {
 	case String:
@@ -245,7 +214,7 @@ func (d *ByDB) packWithExpire(inKey interface{}, inCustomKey CustomKey, ttl int6
 }
 
 // Get 根据key获取值，如果是CustomKey类型的key，支持接收CustomKey.Key()作为寻址key
-func (d *ByDB) Get(key interface{}) (interface{}, error) {
+func (d *DB) Get(key interface{}) (interface{}, error) {
 	// 检测db是否被初始化
 	d.checkBeforeOp()
 
@@ -260,7 +229,7 @@ func (d *ByDB) Get(key interface{}) (interface{}, error) {
 }
 
 // Delete 删除指定的Key，同Get支持CustomKey.Key()作为寻址key
-func (d *ByDB) Delete(key interface{}) error {
+func (d *DB) Delete(key interface{}) error {
 	// 检测db是否被初始化
 	d.checkBeforeOp()
 
@@ -287,7 +256,7 @@ func (d *ByDB) Delete(key interface{}) error {
 	return nil
 }
 
-func (d *ByDB) getCustomKey(key interface{}, locked bool) (CustomKey, error) {
+func (d *DB) getCustomKey(key interface{}, locked bool) (CustomKey, error) {
 	var (
 		k, ok  = key.(string)
 		custom CustomKey
@@ -309,7 +278,7 @@ func (d *ByDB) getCustomKey(key interface{}, locked bool) (CustomKey, error) {
 	return custom, nil
 }
 
-func (d *ByDB) customKeyRLock(key string, locked bool) (custom CustomKey, err error) {
+func (d *DB) customKeyRLock(key string, locked bool) (custom CustomKey, err error) {
 	if locked {
 		d.mu.RLock()
 		custom = d.keys[key]
@@ -323,7 +292,7 @@ func (d *ByDB) customKeyRLock(key string, locked bool) (custom CustomKey, err er
 	return custom, err
 }
 
-func (d *ByDB) Count(queries ...Query) (int, error) {
+func (d *DB) Count(queries ...Query) (int, error) {
 	// 检测db是否被初始化
 	d.checkBeforeOp()
 
@@ -355,14 +324,14 @@ func query(v interface{}, queries ...Query) bool {
 	return true
 }
 
-func (d *ByDB) Iterator() skiplist.Iterator {
+func (d *DB) Iterator() skiplist.Iterator {
 	// 检测db是否被初始化
 	d.checkBeforeOp()
 
 	return d.data.Iterator()
 }
 
-func (d *ByDB) List(page, pageSize int32, queries ...Query) ([]interface{}, bool, error) {
+func (d *DB) List(page, pageSize int32, queries ...Query) ([]interface{}, bool, error) {
 	// 检测db是否被初始化
 	d.checkBeforeOp()
 
@@ -400,7 +369,7 @@ func (d *ByDB) List(page, pageSize int32, queries ...Query) ([]interface{}, bool
 	return ret, hasNextPage, nil
 }
 
-func (d *ByDB) background() {
+func (d *DB) background() {
 	t := time.NewTicker(time.Second)
 	defer t.Stop()
 	for range t.C {

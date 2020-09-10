@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var db = NewByDB()
+var db = NewDB()
 
 func TestByDB_Save(t *testing.T) {
 	err := db.Save("2", 2)
@@ -130,7 +130,7 @@ func TestByDB_List(t *testing.T) {
 	}
 }
 
-var expiredDB = NewByDB(DBOptionWithExpired())
+var expiredDB = NewDB(DBOptionWithExpired())
 
 func TestByDBExpired_Save(t *testing.T) {
 	err := expiredDB.Save("1", 1, SaveOptionTTL(2))
@@ -170,7 +170,7 @@ func newCustomKey(key string, seq int32) CustomKey {
 	}
 }
 
-var customDB = NewCustomByDB(func(l, r interface{}) bool {
+var customDB = NewCustomDB(func(l, r interface{}) bool {
 	left := l.(customKey)
 	right := r.(customKey)
 	if left.seq < right.seq {
@@ -366,7 +366,7 @@ func TestCustomDB_List(t *testing.T) {
 	}
 }
 
-var expiredCustomDB = NewCustomByDB(func(l, r interface{}) bool {
+var expiredCustomDB = NewCustomDB(func(l, r interface{}) bool {
 	left := l.(customKey)
 	right := r.(customKey)
 	if left.seq < right.seq {
